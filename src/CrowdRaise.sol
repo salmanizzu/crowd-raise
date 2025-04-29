@@ -10,7 +10,7 @@ contract CrowdRaise {
     mapping(address => uint256) private s_addressToAmountFunded;
 
     address[] private s_funders;
-    uint256 public s_totalFunded;
+    uint256 private s_totalFunded;
     address private immutable i_owner;
     uint256 private immutable i_usdGoal;
     uint256 private immutable i_deadline;
@@ -38,5 +38,29 @@ contract CrowdRaise {
         s_funders.push(msg.sender);
 
         emit Funded(msg.sender, msg.value);
+    }
+
+    /* ==================================================================================
+     *     GETTER FUNCTION
+     * ================================================================================== */
+
+    function getOwner() external view returns (address) {
+        return i_owner;
+    }
+
+    function getTotalFund() external view returns (uint256) {
+        return s_totalFunded;
+    }
+
+    function getDeadline() external view returns (uint256) {
+        return i_deadline;
+    }
+
+    function getFunder(uint256 index) external view returns (address) {
+        return s_funders[index];
+    }
+
+    function getAddressToAmountFunded(address fundingAddress) external view returns (uint256) {
+        return s_addressToAmountFunded[fundingAddress];
     }
 }
