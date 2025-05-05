@@ -4,6 +4,9 @@ pragma solidity ^0.8.24;
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {PriceConverter} from "./PriceConverter.sol";
 
+error CrowdRaise__NotOwner();
+error CrowdRaise__GoalNotReached();
+
 contract CrowdRaise {
     using PriceConverter for uint256;
 
@@ -20,6 +23,7 @@ contract CrowdRaise {
     uint256 public constant SECOND_TO_DAY = 24 * 60 * 60;
 
     event Funded(address indexed funder, uint256 amount);
+    event Withdrawn(address indexed recipient, uint256 amount);
 
     constructor(address priceFeed, uint256 goalUsdAmount, uint256 durationInDays) {
         require(goalUsdAmount >= 100 * 10 ** 18);
@@ -30,6 +34,11 @@ contract CrowdRaise {
         s_priceFeed = AggregatorV3Interface(priceFeed);
     }
 
+    modifier onlyOwner() {
+        if (msg.sender != i_owner) revert CrowdRaise__NotOwner();
+        _;
+    }
+
     function fund() public payable {
         require(block.timestamp <= i_deadline, "Deadline passed!");
         require(msg.value.getConversionRate(s_priceFeed) >= MINIMUM_USD, "You need more ETH!");
@@ -38,6 +47,22 @@ contract CrowdRaise {
         s_funders.push(msg.sender);
 
         emit Funded(msg.sender, msg.value);
+    }
+
+    function withdraw() public onlyOwner {
+        require(block.timestamp > i_deadline, "Deadline not met!");
+        if (s_totalFunded <= i_usdGoal) revert CrowdRaise__GoalNotReached();
+
+        for (uint256 funderIndex = 0; funderIndex < s_funders.length; funderIndex++) {
+            address funder = s_funders[funderIndex];
+            s_addressToAmountFunded[funder] = 0;
+        }
+        s_funders = new address[](0);
+
+        (bool success,) = i_owner.call{value: address(this).balance}("");
+        require(success);
+
+        emit Withdrawn(i_owner, address(this).balance);
     }
 
     /* ==================================================================================
