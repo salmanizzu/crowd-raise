@@ -72,4 +72,10 @@ contract CrowdRaiseTest is Test {
         }
         assertEq(fundAmount, crowdRaise.getTotalFund());
     }
+
+    /* ==================================================================================
+     *     WITHDRAW TEST
+     * ================================================================================== */
+
+    function onlyOwnerCanWithdraw() public {}
 }

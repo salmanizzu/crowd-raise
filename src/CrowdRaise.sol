@@ -6,6 +6,7 @@ import {PriceConverter} from "./PriceConverter.sol";
 
 error CrowdRaise__NotOwner();
 error CrowdRaise__GoalNotReached();
+error CrowdRaise__WithdrawFailed();
 
 contract CrowdRaise {
     using PriceConverter for uint256;
@@ -50,19 +51,24 @@ contract CrowdRaise {
     }
 
     function withdraw() public onlyOwner {
+        uint256 funding = PriceConverter.getConversionRate(s_totalFunded, s_priceFeed);
         require(block.timestamp > i_deadline, "Deadline not met!");
-        if (s_totalFunded <= i_usdGoal) revert CrowdRaise__GoalNotReached();
+        if (funding <= i_usdGoal) {
+            revert CrowdRaise__GoalNotReached();
+        }
 
-        for (uint256 funderIndex = 0; funderIndex < s_funders.length; funderIndex++) {
-            address funder = s_funders[funderIndex];
+        uint256 numFunders = s_funders.length;
+        for (uint256 i = 0; i < numFunders; i++) {
+            address funder = s_funders[i];
             s_addressToAmountFunded[funder] = 0;
         }
-        s_funders = new address[](0);
+        delete s_funders;
 
-        (bool success,) = i_owner.call{value: address(this).balance}("");
-        require(success);
+        uint256 fundAmount = address(this).balance;
+        (bool success,) = i_owner.call{value: fundAmount}("");
+        if (!success) revert CrowdRaise__WithdrawFailed();
 
-        emit Withdrawn(i_owner, address(this).balance);
+        emit Withdrawn(i_owner, fundAmount);
     }
 
     /* ==================================================================================
@@ -73,12 +79,12 @@ contract CrowdRaise {
         return i_owner;
     }
 
-    function getTotalFund() external view returns (uint256) {
-        return s_totalFunded;
-    }
-
     function getDeadline() external view returns (uint256) {
         return i_deadline;
+    }
+
+    function getTotalFund() external view returns (uint256) {
+        return s_totalFunded;
     }
 
     function getFunder(uint256 index) external view returns (address) {
